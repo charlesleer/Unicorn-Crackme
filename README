@@ -1,0 +1,83 @@
+"Cracking Tutorial"
+
+Well just a quick write up, So I don't forget how I did this.
+
+Tools Used:
+
+Unicorn Crackme: https://reverse.put.as/wp-content/uploads/2010/05/2-Unicorn.zip
+GDB
+Hopper Dissambler
+Notepad + Pen
+Python for the keygen PoC
+
+- Beginning
+
+Start the Unicorn App enter any name and serial and take note of the Bad boy message. "Error! The serial is not valid"
+Exit App and fire up Hopper and load Unicorn, hit File --> Produce new Executable and write this over the existing one. (if you don't GDB fails to run it on OSX 10.11)
+
+Start App in GDB
+Terminal: gdb Unicorn.app/Contents/MacOS/Unicorn
+in a seperate Terminal window: nm Unicorn.app/Contents/MacOS/Unicorn
+
+Check for interesting method names:
+
+00002a41 t -[UnicornAppDelegate validateSerial:forName:]
+
+in the dgb Terminal type: r or Run
+and after that: disas 0x0002a41 
+This should show the validateSerial method:
+
+Dump of assembler code for function -[UnicornAppDelegate validateSerial:forName:]:
+   0x00002a41 <+0>:	push   %ebp
+   0x00002a42 <+1>:	mov    %esp,%ebp
+   0x00002a44 <+3>:	sub    $0x18,%esp
+   0x00002a47 <+6>:	movl   $0x3044,0x8(%esp)
+   0x00002a4f <+14>:	mov    0x4010,%eax
+   0x00002a54 <+19>:	mov    %eax,0x4(%esp)
+   0x00002a58 <+23>:	mov    0x14(%ebp),%eax
+   0x00002a5b <+26>:	mov    %eax,(%esp)
+   0x00002a5e <+29>:	call   0x2cd2
+   0x00002a63 <+34>:	mov    0x400c,%edx
+   0x00002a69 <+40>:	mov    %edx,0x4(%esp)
+   0x00002a6d <+44>:	mov    %eax,(%esp)
+   0x00002a70 <+47>:	call   0x2cd2
+   0x00002a75 <+52>:	mov    0x4008,%edx
+   0x00002a7b <+58>:	mov    %edx,0x4(%esp)
+
+   etc.. etc..
+
+   This is the algorythm for the serial creation.
+   If we look at this in Hopper it's more readable
+
+   Open Hopper and load the Unicorn App.
+   in the Labels section on the Left, dubble click on: -[UnicornAppDelegate validateSerial:forName:]
+   This should load the same code as in GDB.
+   On the top right hit the "pseudo code button" the one marked: "if(b) f(x)"
+
+   This method seems to work like this:
+
+bool -[UnicornAppDelegate validateSerial:forName:](void * self, void * _cmd, void * var_10, void * var_14) {
+    eax = [arg_C stringByAppendingString:@"+unicorn"];				# take the name field and add +unicorn
+    eax = [eax md5HexHash];											# make an MD5 Hash from this string
+    eax = [eax uppercaseString];									# Turn that string into Uppercase							
+    eax = [eax substringToIndex:0x14];								# Slice it up, take only the first 20 Charachters  (14 HEX is 20 Decimal)
+    eax = [eax isEqualToString:arg_8];								# Compare that against a string
+    LOBYTE(eax) = LOBYTE(eax) != 0x0 ? 0x1 : 0x0;					# 
+    return eax;
+}
+
+
+If all good we continue to good boy message, if not Bad Boy message.
+
+Python Keygen example is attached.
+
+
+
+
+
+
+
+
+
+
+
